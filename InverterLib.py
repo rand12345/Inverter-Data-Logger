@@ -15,7 +15,7 @@ def getNetworkIp():
     s.connect(('<broadcast>', 0))
     return s.getsockname()[0]
 
-def createV4RequestFrame(logger_sn):
+def createV5RequestFrame(logger_sn):
     """Create request frame for inverter logger.
 
     The request string is build from several parts. The first part is a
@@ -30,13 +30,14 @@ def createV4RequestFrame(logger_sn):
         str: Information request string for inverter
     """
     #frame = (headCode) + (dataFieldLength) + (contrlCode) + (sn) + (sn) + (command) + (checksum) + (endCode)
-    frame_hdr = binascii.unhexlify('680241b1') #from SolarMan / new Omnik app
-    command = binascii.unhexlify('0100')
-    defchk = binascii.unhexlify('87')
-    endCode = binascii.unhexlify('16')
+    frame_hdr = binascii.unhexlify('a5170010450000') #from SolarMan / new Omnik app
+    dataFieldPrefix = binascii.unhexlify('020000000000000000000000000000')
+    command = binascii.unhexlify('01030000002705d0')
+    defchk = binascii.unhexlify('d8')
+    endCode = binascii.unhexlify('15')
 
     tar = bytearray.fromhex(hex(logger_sn)[8:10] + hex(logger_sn)[6:8] + hex(logger_sn)[4:6] + hex(logger_sn)[2:4])
-    frame = bytearray(frame_hdr + tar + tar + command + defchk + endCode)
+    frame = bytearray(frame_hdr + tar + dataFieldPrefix + command + defchk + endCode)
 
     checksum = 0
     frame_bytes = bytearray(frame)

@@ -1,0 +1,124 @@
+________________________
+request
+
+1  :a5 V5 start marker
+2  :17 data len lo (data are from 12 to 34 bytes = 23 )
+3  :00 data len hi
+4  :10 control code lo
+5  :45 control code hi
+6  :00 serial number = const 0
+7  :00 serial number = const 0 
+8  :xx loger serial number hex end
+9  :xx loger serial number
+10 :xx loger serial number
+11 :xx loger serial number hex start
+12  02 const dataFieldPrefix
+13  00 const dataFieldPrefix
+14  00 const dataFieldPrefix
+15  00 const dataFieldPrefix
+16  00 const dataFieldPrefix
+17  00 const dataFieldPrefix
+18  00 const dataFieldPrefix
+19  00 const dataFieldPrefix
+20  00 const dataFieldPrefix
+21  00 const dataFieldPrefix
+22  00 const dataFieldPrefix
+23  00 const dataFieldPrefix
+24  00 const dataFieldPrefix
+25  00 const dataFieldPrefix
+26  00 const dataFieldPrefix
+27  01 modbus address - always 1
+28  03 modbus Read the real time data(Function Code 0x03)
+29  00 modbus starting addres hi
+30  00 modbus starting addres lo
+31  00 modbus Number of Registers  hi
+32  27 modbus Number of Registers  lo
+33  05 modbus crc lo   (CRC-16/MODBUS) --- range from 27-32
+34  d0 modbus crc hi
+35 :d8 check sum = CheckSum8 (Modulo 256 Sum of Bytes % 256) --- range from 2-34
+36 :15 const V5 end marker
+
+
+_________________________________
+error response frame
+
+:a5 marker
+:01 data len lo
+:00 data len hi
+:10 control code lo
+:47 control code hi
+:00 request id
+:81 request id
+:5e sn
+:c4 sn
+:e3 sn
+:65 sn
+:00 data ?
+:43 check sum
+:15 marker
+_______________
+response
+
+:a5  v5 marker
+:61  len lo
+:00  len hi
+:10  control code
+:15  control code
+:00  incrementing id ?
+:66  incrementing id ?
+:xx  loger serial number end
+:xx  loger serial number
+:xx  loger serial number
+:xx  loger serial number start
+:02  ...
+:01
+:26
+:c1
+:0d
+:00
+:72
+:1c
+:00
+:00
+:63
+:dc
+:8a
+:5e  <---- mobile app skipps till here
+:01  slave address always 1 in app   <<< modbus frame
+:03  function code = 3  - read real time data
+:4e  byte count - without crc 
+:00  operating state - hi
+:02  operating state - lo
+:00  fault1 
+:00  fault1
+:00  fault2
+:00  fault2
+:00  fault3
+:00  fault3
+:00  fault4
+:00  fault4
+:00  fault5
+:00  fault5
+:06  PV1 voltage
+:eb  PV1 voltage
+:00  PV1 current
+:00  PV1 current
+:02  PV2 voltage
+:a3  PV2 voltage
+:00  PV1 current
+:00  PV1 current
+:00  PV1 power
+:00  PV1 power
+:00  PV2 power
+:00  PV2 power
+:00  Output active power
+:00  Output active power
+:00  Output reactive power
+:3c  Output reactive power
+:13  Grid frequency
+:86  Grid frequency
+:08  A-phase voltage
+:cb  A-phase voltage
+:00  ...
+:5b:08:e8:00:5c:08:e0:00:5d:00:00:03:6f:00:00:01:ce:0a:bb:03:44:00:1c:00:2d:16:16:06:ec:02:91:00:3c:00:00:00:01:00:00:05:55:0c:0c:09:b1:f0:04:24
+:15

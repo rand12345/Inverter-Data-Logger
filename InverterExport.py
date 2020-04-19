@@ -4,10 +4,11 @@
 Get data from a Wi-Fi kit logger and save/send the data to the defined plugin(s)
 """
 import socket  # Needed for talking to logger
-import sys
+import time
 import logging
 import logging.config
 import sys
+
 if sys.version[:1] == '2':
     import ConfigParser as configparser
 else:
@@ -114,8 +115,8 @@ class InverterExport(object):
             if (next):
                 continue
 
-            data = InverterLib.createV4RequestFrame(int(sn))
-            logger_socket.sendall(data)
+            data = InverterLib.createV5RequestFrame(int(sn))
+            response = []
 
             #dump raw data to log
             self.logger.debug('RAW sent Packet (len={0}): '.format(len(data))+':'.join(hex(ord(chr(x)))[2:].zfill(2) for x in bytearray(data))+'  '+re.sub('[^\x20-\x7f]', '', ''.join(chr(x) for x in bytearray(data))))
@@ -124,41 +125,49 @@ class InverterExport(object):
             while (not okflag):
 
                 try:
-                    data = logger_socket.recv(1024)
+                    logger_socket.sendall(data)
+                except socket.error as e:
+                    self.logger.error('Connection error IP: {0} and SN {1}, trying next logger.'.format(ip, sn))
+                    continue
+
+                try:
+                    response = logger_socket.recv(1024)
                 except socket.timeout as e:
                     self.logger.error('Timeout connecting to logger with IP: {0} and SN {1}, trying next logger.'.format(ip, sn))
-                    okflag = True
                     continue
 
                 #dump raw data to log
-                self.logger.debug('RAW received Packet (len={0}): '.format(len(data))+':'.join(hex(ord(chr(x)))[2:].zfill(2) for x in bytearray(data))+'  '+re.sub('[^\x20-\x7f]', '', ''.join(chr(x) for x in bytearray(data))))
+                self.logger.debug('RAW received Packet (len={0}): '.format(
+                    len(response))+':'.join(hex(ord(chr(x)))[2:].zfill(2) for x in bytearray(response))+'  '+re.sub('[^\x20-\x7f]', '', ''.join(chr(x) for x in bytearray(response))))
 
-                msg = InverterMsg.InverterMsg(data)
+                if len(response) > 20:
+                    msg = InverterMsg.InverterMsg(response, self.logger)
 
-                #log DATA length
-                self.logger.debug('DATA len={0}: '.format(msg.len))
+                    #log DATA length
+                    self.logger.debug('DATA len={0}: '.format(msg.len))
 
-                if (msg.msg)[:9] == 'DATA SEND':
-                    self.logger.debug("Exit Status: {0}".format(msg.msg))
-                    logger_socket.close()
-                    okflag = True
-                    continue
+                    if (msg.msg)[:9] == 'DATA SEND':
+                        self.logger.debug("Exit Status: {0}".format(msg.msg))
+                        logger_socket.close()
+                        continue
 
-                if (msg.msg)[:11] == 'NO INVERTER':
-                    self.logger.debug("Inverter(s) are in sleep mode: {0} received".format(msg.msg))
-                    logger_socket.close()
-                    okflag = True
-                    continue
+                    if (msg.msg)[:11] == 'NO INVERTER':
+                        self.logger.debug("Inverter(s) are in sleep mode: {0} received".format(msg.msg))
+                        logger_socket.close()
+                        continue
 
-                self.logger.info("Inverter ID: {0}".format(msg.id))
-                if (msg.len > 140):
-                    self.logger.info("Inverter main firmware version: {0}".format(msg.main_fwver))
-                    self.logger.info("Inverter slave firmware version: {0}".format(msg.slave_fwver))
-                self.logger.info("RUN State: {0}".format(msg.run_state))
+                    self.logger.info("Inverter ID: {0}".format(msg.id))
+                    if (msg.len > 140):
+                        self.logger.info("Inverter main firmware version: {0}".format(msg.main_fwver))
+                        self.logger.info("Inverter slave firmware version: {0}".format(msg.slave_fwver))
 
-                for plugin in Plugin.plugins:
-                    self.logger.debug('Run plugin' + plugin.__class__.__name__)
-                    plugin.process_message(msg)
+                    for plugin in Plugin.plugins:
+                        self.logger.debug('Run plugin' + plugin.__class__.__name__)
+                        plugin.process_message(msg)
+
+                time.sleep(5)
+
+
 
     def build_logger(self, config):
         # Build logger

@@ -2,38 +2,70 @@ import struct  # Converting bytes to numbers
 import re
 import binascii
 
-#V4 table
+# V5 table
 offset = {
- 1:  1, #len(1)
- 2: 12, #msg(12)
- 3: 15, #id(15)
- 4: 31, #temperature(31)
- 5: 33, #v_pv(33,35,37)
- 6: 39, #i_pv(39,41,43)
- 7: 45, #i_ac(45,47,49)
- 8: 51, #v_ac(51,53,55)
- 9: 57, #f_ac(57,62,65)
-10: 59, #p_ac(59,63,67)
-11: 69, #e_today(69)
-12: 71, #e_total(71)
-13: 75, #h_total(75)
-14: 79, #run_state(79)
-15: 81, #GVFaultValue(81)
-16: 83, #GVFaultValue(83)
-17: 85, #GZFaultValue(85)
-18: 87, #TmpFaultValue(87)
-19: 89, #PVFaultValue(89)
-20: 91, #GFCIFaultValue(91)
-21: 93, #errorMsg(93)
-22:101, #main_fwver(101)
-23:121,}#slave_fwver(121)
+-1:  0, #len(1)
+        #Inverter Data Address table
+ 0:  1, #Operating state
+ 1:  3, #Fault1
+ 2:  5, #Fault2
+ 3:  7, #Fault3
+ 4:  9, #Fault4
+ 5: 11, #Fault5
+        #PV Input Message
+ 6: 13, #PV1 voltage Unit:0.1V
+ 7: 15, #PV1 current Unit:0.01A
+ 8: 17, #PV2 voltage Unit:0.1V
+ 9: 19, #PV2 current Unit:0.01A
+10: 21, #PV1 power Unit:0.01kw
+11: 23, #PV2 power Unit:0.01kw
+        #Output Grid Message
+12: 25, #Output active power Unit:0.01kW
+13: 27, #Output reactive power Unit:0.01kVar
+14: 29, #Grid frequency Unit:0.01Hz
+15: 31, #A-phase voltage Unit:0.1V
+16: 33, #A-phase current Unit:0.01A
+17: 35, #B-phase voltage Unit:0.1V
+18: 37, #B-phase current Unit:0.01A
+19: 39, #C-phase voltage Unit:0.1V
+20: 41, #C-phase current Unit:0.01A
+        #Inverter Generation message
+21: 43, #Total production hi Unit:1kWh
+22: 45, #Total production low
+23: 47, #Total generation hi Unit:1 hour
+24: 49, #Total generation low
+25: 51, #Today production Unit:0.01kWh
+26: 53, #Today generation time
+        #Inverter inner message Unit:1 Minute
+27: 55, #Inverter module temperature
+28: 57, #Inverter inner temperature
+29: 59, #Inverter Bus voltage Unit:0.1V
+30: 61, #PV1 voltage sample by slave CPU Unit:0.1V
+31: 63, #PV1 current sample by slave CPU Unit:0.01A
+32: 65, #Count-down time
+33: 67, #Inverter alert message
+34: 69, #Input mode 0x00: in parallal 0x01: in dependent
+35: 71, #Communication board inner message
+36: 73, #Insulation of PV1+ to ground
+37: 75, #Insulation of PV - to ground
+38: 77, #Country
+}
+
+mode = ['Unknown', 'Check', 'Normal', 'Fault', 'Permanent' ]
 
 class InverterMsg(object):
     """Decode the response message from an inverter logger."""
-    raw_msg = ""
+    msg_body = ""
 
-    def __init__(self, msg, offset=0):
+    def __init__(self, msg, logger):
         self.raw_msg = msg
+        self.msg_body = msg[27:]
+        self.logger = logger
+
+        self.logger.debug('received msg body (len={0}): '.format(len(self.msg_body)) + ':'.join(
+            hex(ord(chr(x)))[2:].zfill(2) for x in bytearray(self.msg_body)) + '  ' + re.sub('[^\x20-\x7f]', '', ''.join(
+            chr(x) for x in bytearray(self.msg_body))))
+
         self.offset = offset
 
     def __get_string(self, begin, end):
@@ -46,7 +78,7 @@ class InverterMsg(object):
         Returns:
             str: String in the message from start to end
         """
-        return self.raw_msg[begin:end].decode('cp437')
+        return self.msg_body[begin:end].decode('cp437')
 #
     def __get_int(self, begin):
         """Extract byte value from message.
@@ -57,9 +89,9 @@ class InverterMsg(object):
         Returns:
             int: value at offset
         """
-        if (len(self.raw_msg) < begin):
+        if (len(self.msg_body) < begin):
             return 0
-        return int(binascii.hexlify(bytearray(self.raw_msg[begin:begin+1])), 16)
+        return int(binascii.hexlify(bytearray(self.msg_body[begin:begin + 1])), 16)
 #
     def __get_short(self, begin, divider=10):
         """Extract short from message.
@@ -75,7 +107,7 @@ class InverterMsg(object):
         Returns:
             int or float: Value stored at location `begin`
         """
-        num = struct.unpack('!H', self.raw_msg[begin:begin + 2])[0]
+        num = struct.unpack('!H', self.msg_body[begin:begin + 2])[0]
         if num > 32767:
             return float(-(65536 - num)) / divider
         else:
@@ -95,12 +127,175 @@ class InverterMsg(object):
             int or float: Value stored at location `begin`
         """
         return float(
-            struct.unpack('!I', self.raw_msg[begin:begin + 4])[0]) / divider
+            struct.unpack('!I', self.msg_body[begin:begin + 4])[0]) / divider
+
+    ####################################################################################################################
 
     @property
     def len(self):
         """received data len msg."""
-        return self.__get_int(offset[1])
+        return self.__get_int(offset[-1])
+
+    @property
+    def mode(self):
+        """Operating mode."""
+        return mode[int(self.__get_short(offset[0], 1))]
+
+
+    def v_pv(self, i=1):
+        """Voltage of PV input channel.
+
+        Available channels are 1, 2; if not in this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): input channel (valid values: 1, 2)
+
+        Returns:
+            float: PV voltage of channel i
+        """
+        if i not in range(1, 3):
+            i = 1
+        num = offset[6] + (i - 1) * 4
+        return self.__get_short(num)
+
+    def i_pv(self, i=1):
+        """Current of PV input channel.
+
+        Available channels are 1, 2; if not in this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): input channel (valid values: 1, 2)
+
+        Returns:
+            float: PV current of channel i
+        """
+        if i not in range(1, 3):
+            i = 1
+        num = offset[7] + (i - 1) * 4
+        return self.__get_short(num, 100)
+
+    def p_pv(self, i=1):
+        """Power of PV input channel.
+
+        Available channels are 1, 2; if not in this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): input channel (valid values: 1, 2)
+
+        Returns:
+            float: PV current of channel i
+        """
+        if i not in range(1, 3):
+            i = 1
+        num = offset[10] + (i - 1) * 2
+        return self.__get_short(num, 100)
+
+    @property
+    def output_active_power(self):
+        """Output active power  kW"""
+        return self.__get_short(offset[12], 100)  # Divide by 100
+    @property
+    def output_reactive_power(self):
+        """Output reactive power kVar"""
+        return self.__get_short(offset[13], 100)  # Divide by 100
+
+    @property
+    def e_today(self):
+        """Energy generated by inverter today in kWh"""
+        return self.__get_short(offset[25], 100)  # Divide by 100
+
+    @property
+    def e_total(self):
+        """Total energy generated by inverter in kWh"""
+        return self.__get_long(offset[21], 1)
+
+    @property
+    def h_total(self):
+        """Hours the inverter generated electricity"""
+        return int(self.__get_long(offset[23], 1))  # Don't divide
+
+
+    @property
+    def module_temp(self):
+        """Temperature recorded by the inverter."""
+        return self.__get_short(offset[27], 1)
+
+
+    def inner_temp(self):
+        """Temperature recorded by the inverter."""
+        return self.__get_short(offset[28], 1)
+
+    def f_ac(self, i=1):
+        """Frequency of the output channel
+
+        Available channels are 1, 2 or 3; if not in this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): output channel (valid values: 1, 2, 3)
+
+        Returns:
+            float: AC frequency of channel i
+        """
+        #the same 4 all
+        return self.__get_short(offset[14], 100)  # Divide by 100
+
+    def v_ac(self, i=1):
+        """Voltage of the Inverter output channel
+
+        Available channels are 1, 2 or 3; if not in this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): output channel (valid values: 1, 2, 3)
+
+        Returns:
+            float: AC voltage of channel i
+        """
+        if i not in range(1, 4):
+            i = 1
+        num = offset[15] + (i - 1) * 4
+        return self.__get_short(num)
+
+    def i_ac(self, i=1):
+        """Current of the Inverter output channel
+
+        Available channels are 1, 2 or 3; if not in this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): output channel (valid values: 1, 2, 3)
+
+        Returns:
+            float: AC current of channel i
+
+        """
+        if i not in range(1, 4):
+            i = 1
+        num = offset[16] + (i - 1) * 4
+        return self.__get_short(num, 100)
+
+    def p_ac(self, i=1):
+        """Power output of the output channel
+
+        Available channels are 1, 2 or 3; if no tin this range the function will
+        default to channel 1.
+
+        Args:
+            i (int): output channel (valid values: 1, 2, 3)
+
+        Returns:
+            float: Power output of channel i
+        """
+        if i not in range(1, 4):
+            i = 1
+        return (self.v_ac(i) * self.i_ac(i)) / 1000
+
+####################################################################################################################
+
 
     @property
     def msg(self):
@@ -110,32 +305,8 @@ class InverterMsg(object):
     @property
     def id(self):
         """ID of the inverter."""
-        return self.__get_string(offset[3], offset[3]+16).lstrip().rstrip() #Strip spaces from shorter or padded inverter SN
-
-    @property
-    def temp(self):
-        """Temperature recorded by the inverter."""
-        return self.__get_short(offset[4], 10)
-
-    @property
-    def e_today(self):
-        """Energy generated by inverter today in kWh"""
-        return self.__get_short(offset[11], 100)  # Divide by 100
-
-    @property
-    def e_total(self):
-        """Total energy generated by inverter in kWh"""
-        return self.__get_long(offset[12])
-
-    @property
-    def h_total(self):
-        """Hours the inverter generated electricity"""
-        return int(self.__get_long(offset[13], 1))  # Don't divide
-
-    @property
-    def run_state(self):
-        """RUN State"""
-        return int(self.__get_short(offset[14], 1))
+        #return self.__get_string(offset[3], offset[3]+16).lstrip().rstrip() #Strip spaces from shorter or padded inverter SN
+        return "?"
 
     @property
     def GVFaultValue(self):
@@ -183,106 +354,3 @@ class InverterMsg(object):
         """Inverter slave firmware version."""
         if (self.__get_int(offset[23]) == 0): return ""
         return re.sub('[^\x20-\x7f]', '', self.__get_string(offset[23], offset[23]+19))
-
-    def v_pv(self, i=1):
-        """Voltage of PV input channel.
-
-        Available channels are 1, 2 or 3; if not in this range the function will
-        default to channel 1.
-
-        Args:
-            i (int): input channel (valid values: 1, 2, 3)
-
-        Returns:
-            float: PV voltage of channel i
-        """
-        if i not in range(1, 4):
-            i = 1
-        num = offset[5] + (i - 1) * 2
-        return self.__get_short(num)
-
-    def i_pv(self, i=1):
-        """Current of PV input channel.
-
-        Available channels are 1, 2 or 3; if not in this range the function will
-        default to channel 1.
-
-        Args:
-            i (int): input channel (valid values: 1, 2, 3)
-
-        Returns:
-            float: PV current of channel i
-        """
-        if i not in range(1, 4):
-            i = 1
-        num = offset[6] + (i - 1) * 2
-        return self.__get_short(num)
-
-    def i_ac(self, i=1):
-        """Current of the Inverter output channel
-
-        Available channels are 1, 2 or 3; if not in this range the function will
-        default to channel 1.
-
-        Args:
-            i (int): output channel (valid values: 1, 2, 3)
-
-        Returns:
-            float: AC current of channel i
-
-        """
-        if i not in range(1, 4):
-            i = 1
-        num = offset[7] + (i - 1) * 2
-        return self.__get_short(num)
-
-    def v_ac(self, i=1):
-        """Voltage of the Inverter output channel
-
-        Available channels are 1, 2 or 3; if not in this range the function will
-        default to channel 1.
-
-        Args:
-            i (int): output channel (valid values: 1, 2, 3)
-
-        Returns:
-            float: AC voltage of channel i
-        """
-        if i not in range(1, 4):
-            i = 1
-        num = offset[8] + (i - 1) * 2
-        return self.__get_short(num)
-
-    def f_ac(self, i=1):
-        """Frequency of the output channel
-
-        Available channels are 1, 2 or 3; if not in this range the function will
-        default to channel 1.
-
-        Args:
-            i (int): output channel (valid values: 1, 2, 3)
-
-        Returns:
-            float: AC frequency of channel i
-        """
-        if i not in range(1, 4):
-            i = 1
-        num = offset[9] + (i - 1) * 4
-        return self.__get_short(num, 100)
-
-    def p_ac(self, i=1):
-        """Power output of the output channel
-
-        Available channels are 1, 2 or 3; if no tin this range the function will
-        default to channel 1.
-
-        Args:
-            i (int): output channel (valid values: 1, 2, 3)
-
-        Returns:
-            float: Power output of channel i
-        """
-        if i not in range(1, 4):
-            i = 1
-        num = offset[10] + (i - 1) * 4
-        return int(self.__get_short(num, 1))  # Don't divide
