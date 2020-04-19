@@ -1,3 +1,5 @@
+TODO modify readme for V5 changes
+
 # Inverter Data Logger
 Inverter Data Logger is a small script for uploading data from a 
 Omnik, Hosola, Goodwe, Solax, Ginlong, Samil, Sofar or Power-One
