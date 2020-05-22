@@ -17,7 +17,7 @@ import optparse
 import os
 import re
 from PluginLoader import Plugin
-import InverterMsg  # Import the Msg handler
+import InverterMsg_GTIL as InverterMsg  # Import the Msg handler
 import InverterLib  # Import the library
 
 class InverterExport(object):
