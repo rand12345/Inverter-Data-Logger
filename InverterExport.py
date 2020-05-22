@@ -140,8 +140,8 @@ class InverterExport(object):
                 import codecs
                 self.logger.debug('RAW received Packet (len={0}): '.format(
                     len(response))+':'.join(hex(ord(chr(x)))[2:].zfill(2) for x in bytearray(response))+'  '+re.sub('[^\x20-\x7f]', '', ''.join(chr(x) for x in bytearray(response))))
-                for a_ in range(len(response)):
-                    print(int(codecs.encode(bytearray(response[a_:a_+1]), 'hex'), 16))
+
+                print('Serial:', int(codecs.encode(bytearray(response[32:42]), 'utf8'), 16))
 
                 if len(response) > 20:
                     msg = InverterMsg.InverterMsg(response, self.logger)
