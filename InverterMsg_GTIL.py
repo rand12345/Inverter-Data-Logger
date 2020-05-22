@@ -154,10 +154,11 @@ class InverterMsg(object):
         Returns:
             float: PV voltage of channel i
         """
-        if i not in range(1, 3):
+        '''if i not in range(1, 3):
             i = 1
         num = offset[6] + (i - 1) * 4
-        return self.__get_short(num)
+        '''
+        return self.__get_long(offset[6],i)
 
     def i_pv(self, i=1):
         """Current of PV input channel.
