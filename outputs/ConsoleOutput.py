@@ -25,10 +25,10 @@ class ConsoleOutput(PluginLoader.Plugin):
         sys.stdout.write('L3    P: {0:>5.2f}   V: {1:>5}   I: {2:>4}   F: {3:>5}\n'.format(msg.p_ac(3), msg.v_ac(3), msg.i_ac(3), msg.f_ac(3)))
         '''
         for i in range(117):
-            sys.stdout.write('i: {}'.format(msg.get_short(i,1)))
+            sys.stdout.write('i: {}'.format(msg.get_short(i, 1)))
 
         try:
             for i in range (int(118/2)):
-                sys.stdout.write ('i: {}'.format (msg.get_long (i,1)))
+                sys.stdout.write ('i: {}'.format (msg.get_long (i, 1)))
         except:
             pass
