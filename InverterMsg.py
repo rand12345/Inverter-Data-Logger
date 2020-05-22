@@ -194,6 +194,22 @@ class InverterMsg(object):
         return self.__get_short(num, 100)
 
     @property
+    def get_short(self, off_, div_):
+        return self.__get_short(offset[off_], div_)
+
+    @property
+    def get_long(self, off_, div_):
+        return self.__get_long (offset[off_], div_)
+
+    @property
+    def get_int(self,off_):
+        return self.__get_int(offset[off_])
+
+    @property
+    def set_string(self, off_):
+        return self.__get_string (offset[off_], self.len + offset[off_])
+
+    @property
     def output_active_power(self):
         """Output active power  kW"""
         return self.__get_short(offset[12], 100)  # Divide by 100

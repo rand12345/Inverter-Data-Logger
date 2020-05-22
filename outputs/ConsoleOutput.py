@@ -10,7 +10,7 @@ class ConsoleOutput(PluginLoader.Plugin):
         Args:
             msg (InverterMsg.InverterMsg): Message to process
         """
-        sys.stdout.write('Inverter ID: {0}\n'.format(msg.id))
+        '''sys.stdout.write('Inverter ID: {0}\n'.format(msg.id))
         sys.stdout.write('Operating mode: {0}\n'.format(msg.mode))
 
         sys.stdout.write('E Today : {0:>5}   Total: {1:<5}\n'.format(msg.e_today, ((((msg.e_today*10)-(int(msg.e_today*10)))/10)+msg.e_total)))
@@ -23,3 +23,12 @@ class ConsoleOutput(PluginLoader.Plugin):
         sys.stdout.write('L1    P: {0:>5.2f}   V: {1:>5}   I: {2:>4}   F: {3:>5}\n'.format(msg.p_ac(1), msg.v_ac(1), msg.i_ac(1), msg.f_ac(1)))
         sys.stdout.write('L2    P: {0:>5.2f}   V: {1:>5}   I: {2:>4}   F: {3:>5}\n'.format(msg.p_ac(2), msg.v_ac(2), msg.i_ac(2), msg.f_ac(2)))
         sys.stdout.write('L3    P: {0:>5.2f}   V: {1:>5}   I: {2:>4}   F: {3:>5}\n'.format(msg.p_ac(3), msg.v_ac(3), msg.i_ac(3), msg.f_ac(3)))
+        '''
+        for i in range(117):
+            sys.stdout.write('i: {}'.format(msg.get_short(i)))
+
+        try:
+            for i in range (int(118/2)):
+                sys.stdout.write ('i: {}'.format (msg.get_long (i)))
+        except:
+            pass
