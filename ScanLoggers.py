@@ -10,7 +10,7 @@ import InverterMsg  # Import the Msg handler
 import InverterLib  # Import the library
 
 def get_inverter_sn(logger_sn, logger_ip):
-    data = InverterLib.createV4RequestFrame(int(logger_sn))
+    data = InverterLib.createV5RequestFrame(int(logger_sn))
 #    print >>sys.stdout, 'DATA = %s' % data
     logger_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     logger_socket.settimeout(3)
